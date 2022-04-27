@@ -1,0 +1,81 @@
+---
+title: "Assessment 3 - Aviv Gelfand"
+author: "52414"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+1. Write a function that recieves as input two vectors of real numbers: `a` and `x`. The function should return a
+vector `e` of the same length as `a`, such that `e_i` is the empirical cumulative distribution function of the sample `x`, evaluated at the point a(i), that is $e_i = \hat{F}_n(a(i))$ where $\hat{F}_n$ is the empirical CDF defined by $x$. Do not use the `ecdf` function of **R**. <br>
+    **Solution:**
+```{r}
+my_ecdf <- function(a, x){
+  n <- length(x)
+  e = sapply(X = a, FUN = sum.cum.ai, n_lentgth = n ,x_vector = x )
+  return (e)
+}
+
+sum.cum.ai <- function(a.i,n_lentgth, x_vector){
+  return(sum(x_vector <= a.i) / n_lentgth)
+}
+
+
+
+x_test = c(1:10)
+a_test = c(10, 3, 8, 20)
+
+sum(x_test <= a_test[2])
+
+my_ecdf(a_test,x_test)
+
+```
+
+2. Download from moodle and load the Israeli crime dataset `Israel crime 2011 regions`. <br>
+Calculate the `assaults-rate:` assaults per 1000 people for each city in the Israeli crime dataset. 
+Make a figure showing the empirical CDF of the assults-rate in each of the four regions in Israel
+(one plot, 4 different curves of different colors, each representing a different region). 
+You can use the function from question 1 or other commands in R. <br>
+    **Solution:**
+```{r}
+library(tidyverse)
+library(dslabs)
+library(dplyr)
+
+
+
+crimes = read.csv("israeli_crime_2011_region.csv",stringsAsFactors = FALSE)  # Set path and read data.
+head(crimes, 3)
+
+names(crimes)[5] <- "population"
+crimes$assaults_rate = (crimes$assaults/crimes$population)*1000
+head(crimes,3)
+
+# PLOT
+crimes %>% ggplot(aes(x=assaults_rate , col=region)) +
+  stat_ecdf()
+```
+
+3. Make a figure with histogram plot for the assaults rate in the North region. Choose a bin size approriate for the data. <br>
+
+Next, make another figure with a single smoothed density plot showing the 
+densities of the four regions of the same data as in qu. 2 (with four different colors).
+
+What can you conclude about the differences between the regions? <br>
+    **Solution:**
+```{r}
+north_crimes = filter(crimes, region == "North")
+north_crimes %>% ggplot(aes(assaults_rate)) + geom_histogram(binwidth = 1,color = "black")
+
+
+
+#make another figure with a single smoothed density plot showing the
+#densities of the four regions of the same data as in qu. 2 (with four different colors).
+crimes %>% ggplot(aes(assaults_rate, fill = region))+
+  geom_density(alpha = 0.3)
+
+```
+
