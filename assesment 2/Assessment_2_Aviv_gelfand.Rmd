@@ -1,0 +1,115 @@
+---
+title: "Assessment_2_Aviv_gelfand"
+author: "Aviv Gelfand"
+date: '2022-03-19'
+output: html_document
+---
+
+  
+### Submission Instructions:  
+Please submit this Rmd file (with your answers) together with the html file that is outputted automatically by knitr when you knit the Rmd in moodle. Please adhere to the following file format:    
+`Assessment_2_familyName_Name.Rmd/html`   
+
+## Basic Data Wrangling:  
+
+1. Load the most recent version of the `time_series_covid19_confirmed_global_narrow.csv` file from [here.](https://data.humdata.org/dataset/novel-coronavirus-2019-ncov-cases) What is the value of confirmed cases in Israel on the first of March, 2022?  
+
+**Solution:**  
+
+```{r, cache=TRUE, warning=FALSE}
+
+library(dplyr)
+
+covid_cases = read.csv("time_series_covid19_confirmed_global_narrow.csv" )
+# covid_cases
+covid_cases <- mutate(covid_cases, Value = as.integer(Value))
+val = covid_cases$Value[covid_cases$Country.Region == "Israel" & covid_cases$Date == "2022-03-01"]
+val
+```
+
+
+2. For each of the beginning of months (March 2020, March 2021, March 2022), list the top 10 countries in terms of confirmed cases. Plot those top 10 countries using `plot.    
+
+**Solution:**    
+
+
+```{r , cache=TRUE}
+March20 = subset(covid_cases, Date == "2020-03-01",  c("Country.Region","Value"))
+March21 = subset(covid_cases, Date == "2021-03-01",  c("Country.Region","Value"))
+March22 = subset(covid_cases, Date == "2022-03-01",  c("Country.Region","Value"))
+
+sum_data <- function(dayli_cases_data_frame){
+  summerised.data <- dayli_cases_data_frame %>%      # Consolidate duplicates
+  group_by(Country.Region) %>%
+  dplyr::summarise(Value = sum(Value)) %>% 
+  as.data.frame()
+  return(summerised.data)
+  }
+
+March20.sum.top10 = sum_data(March20) %>% top_n(10, Value)
+March21.sum.top10 = sum_data(March21) %>% top_n(10, Value)
+March22.sum.top10 = sum_data(March22) %>% top_n(10, Value)
+
+plot( factor(March20.sum.top10$Country.Region), March20.sum.top10$Value , type="h" , cex.axis=0.5, lwd = 2)
+plot( factor(March21.sum.top10$Country.Region), March21.sum.top10$Value , type="h" , cex.axis=0.5)
+plot( factor(March22.sum.top10$Country.Region), March22.sum.top10$Value , type="h" , cex.axis=0.5)
+
+```
+
+
+
+3. According to the data, which country was the last one to remain Corona-free (zero Corona cases)?     
+How many cases were diagnosed in this country overall? 
+
+**Solution:**   
+
+```{r, cache=TRUE}
+
+covid_cases_per_country = covid_cases %>% select(Country.Region, Date, Value)
+
+sum_data <- function(dayli_cases_data_frame){
+  summerised.data <- dayli_cases_data_frame %>%      # Consolidate duplicates
+    filter (Value > 0) %>%
+    group_by(Country.Region) %>%
+    summarise(Date = min(Date)) %>%
+    as.data.frame()
+  return(summerised.data)
+}
+
+
+first_date_cases = sum_data(covid_cases_per_country)
+first_date_cases <- mutate(first_date_cases, Date = as.Date(Date)) %>% arrange(desc(Date))
+# first_date_cases
+answer.country = first_date_cases$Country.Region[3]
+
+cases.answer.country.df = covid_cases %>% 
+  select(Country.Region, Value) %>%
+  filter(Country.Region == answer.country) 
+# answer.country.cases.df
+
+ cases.overall <- (cases.answer.country.df %>%      
+  group_by(Country.Region) %>%
+  dplyr::summarise(Value = sum(Value)))$Value
+# cases.overall
+
+print(paste0("The last  country to remain Corona-free is:  ", answer.country))
+print(paste0("Cases were diagnosed in this country overall: ", cases.overall))
+
+```  
+  
+
+   
+4. Choose a country and compute for it the *daily* number of cases for all dates for which there is data on this county. 
+Plot the daily number vs. the date
+```{r, cache=TRUE}
+israel.cases = covid_cases %>% filter(Country.Region == "Israel") %>%  select(Date, Value)  
+israel.cases <- mutate(israel.cases, Date = as.Date(Date))
+plot(israel.cases, type="h" )
+
+```
+
+
+        
+### Good Luck!  
+  
+
