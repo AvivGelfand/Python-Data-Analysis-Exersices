@@ -1,0 +1,453 @@
+
+---
+title: 'Lecture 8: Discrete Sampling and Monte Carlo'
+# author: ""
+output:
+#  html_document:
+#    df_print: paged
+  slidy_presentation: default
+#    pdf_document
+
+
+
+---
+```{r setup, include=FALSE}
+library(knitr)
+
+# Set knitr options for knitting code into the report:
+# - Don't print out code (echo)
+# - Save results so that code blocks aren't re-run unless code changes (cache),
+# _or_ a relevant earlier code block changed (autodep), but don't re-run if the
+# only thing that changed was the comments (cache.comments)
+# - Don't clutter R output with messages or warnings (message, warning)
+  # This _will_ leave error messages showing up in the knitted report
+opts_chunk$set(echo=TRUE,
+               cache=TRUE, autodep=TRUE, cache.comments=FALSE,
+               message=FALSE, warning=FALSE)
+
+library("MASS")
+library('mvtnorm')
+library("ggplot2")
+library("dplyr")
+```
+
+
+
+![](sampling.jpg)
+
+Sampling in Statistics 
+=====
+
+<img src="stat_song.jpg" width="360" height="460" />
+
+
+Example: Balls in hat
+=====
+
+<img src="bins.png" width="100" height="100" />
+
+
+- Hat (or 'urn')
+- 2 white balls
+- 3 black balls
+
+What is the outcome if I choose one ball?
+
+
+Balls in a hat
+=====
+
+
+### Probabilistic model:
+
+- Every ball is equally likely
+- Uniform sample space
+- $P(white) = \frac{n_{white}}{n_{total}}$
+
+### Meaning for real life? 
+
+- Repeat experiment multiple times (independently)
+- Relative frequency of `white` in the sample approximates $P(white)$
+- Let $W_i$ be the event that the $i$-th ball is `white`.
+\[ \frac{\sum^n_{i=1} I(W_i)}{n} \overset{a.s.}{\underset{n\to \infty}{\longrightarrow}} P(white) \]
+
+Sampling from a probabilistic model
+=====
+
+- **Sampling:** Generating observations 
+according to probability model. 
+
+- Define sample space (`rep` function):
+```{r}
+balls <- rep( c("white", "black"), times = c(2,3))
+balls
+```
+
+Use `sample` to pick a ball at random:
+
+```{r}
+sample(balls, 1)
+```
+
+Monte Carlo method
+=====
+
+Use replicates of a probabilistic experiment to study the model
+
+```{r}
+B <- 10000
+events <- replicate(B, sample(balls, 1))
+```
+
+Does proportion approximate probability? 
+
+```{r}
+tab <- table(events)
+tab
+```
+
+Using prop.table gives proportions 
+```{r}
+prop.table(tab)
+```
+
+Reminder, why does this work? 
+============
+
+__Law of large numbers__
+
+Let $X_1,..,X_n,...$ be a Sequence of Identically distributed, Independent Random Variables.
+
+
+Then:
+\[\frac{\sum_{i=1}^n X_i}{n} \overset{a.s.}{\to} E[X_1] \]
+
+Why relevant?
+
+Indicator variables $I_1,...,I_n,...$:
+
+- $I_i = 1$ if white in $i$'th experiment
+- $I_i = 0$ if black 
+
+Then $E[I_1] = P(\text{white in i'th})$
+
+Discrete sampling in R: Uniform space
+====
+
+__With or without replacement__
+
+Default in R to sample without replacement
+```{r}
+sample(balls, 5)
+sample(balls, 5)
+sample(balls, 5)
+```
+We get a random ordering of balls
+
+QU: What will happen if we ask for 6? 
+```{r, eval=FALSE}
+sample(balls, 6)
+```
+
+    `Error in sample.int(length(x), size, replace, prob) : 
+ANS: we will get an error. We can't take a sample larger than the population when 'replace = FALSE'`
+
+```{r}
+events <- sample(balls, B, replace = TRUE)
+prop.table(table(events))
+```
+
+Discrete sampling in R: Categorical distributions
+====
+
+```{r}
+samp_3 = sample(c(1,2,3,4), 10000, prob = c(.1,.2,.35,.35), replace = TRUE)
+prop.table(table(samp_3))
+```
+
+For example, create a random poll choosing $500$ voters:
+```{r}
+parties <- c("Likud", "Yesh-Atid", "Shas", "Kahol-Lavan", "Yemina", "Avoda",
+             "Yahadut-Hatora","Israel-Beitenu", "Zionut-Datit", "Tikva-Hadasha", "Meretz", "Meshutefet", "Raam")
+seats =  c(30,17,9,8,7,7,7,7,6,6,6,6,4) #Based on March 2021 elections
+parties_prob = seats/120    
+       
+poll = sample(parties, 500, prob= parties_prob, replace = TRUE)
+prop.table(table(poll))*120
+```
+
+If we rerun the poll, we get a different outcome
+```{r}
+poll2 = sample(parties, 500, prob= parties_prob, replace = TRUE)
+prop.table(table(poll))*120
+prop.table(table(poll2))*120
+```
+
+Side note: how does a computer produce a random number?
+====
+
+Methods for producing random numbers:
+
+**Noise:** 
+
+- Decomposing particles
+- Cosmic radiation
+
+**Algorithmic (pseudo-random):**
+
+- Make number sequence that "looks" random
+- $X_{n+1} = f(X_n)$ for specifically designed functions.
+- Example: Linear congruental generator 
+\[ X_{n+1} = (a  X_n + b) \:\: mod \:\: m \]
+    - Produces numbers between $0$ and $m-1$. 
+    - Dividing by $m$ gives (approximately) a uniform distribution over $[0,1]$.
+- R uses "Mersenne-Twister" as default, many choices
+- Try `?RNG`
+
+Side note continued - seeds
+====
+Seeding pseudo-random:
+
+- The algorithms depend on seed ($X_0$)
+- Same sequence, same seed &rarr same outputs
+
+If we don't set a seed, the sequence *changes*
+```{r}
+sample(10)
+sample(10)
+```
+
+If we set a seed, we get *identical* sequences
+```{r}
+set.seed(12345)
+sample(10)
+set.seed(12345)
+sample(10)
+```
+
+Learning about distributions via sampling
+====
+
+**Experiment:** try to create Bernoulli(0.5) sequences
+
+- **One method:** sample a sequence of 50 digits randomly
+- **Another method:** type sequence manually and try to make it as 'random' as possible without sampling 
+
+Can you guess which one is random and which human-generated?
+
+1: 01001010010101010101101010101001011010111101010101 <br>
+2: 10000000000111110010000100100010001110110011011010
+
+
+How many triplets (i.e. '000' or '111') do we expect to see in Bernoulli(0.5) sequence (n=50)?
+====
+
+```{r}
+paste(sample(size = 50, x =c(0,1),replace = TRUE) , collapse="")
+paste(sample(size = 50, x =c(0,1),replace = TRUE) , collapse="")
+paste(sample(size = 50, x =c(0,1),replace = TRUE) , collapse="")
+```
+
+
+
+How many triplets in Bernoulli(0.5) sequence (n=50)?
+====
+
+Let's write a function counting consecutive triplets.
+
+
+```{r}
+trip_count = function(seq){ # count number of '000' and '111' in a sequence
+    l=  length(seq)
+    pair_a = seq[1:(l-2)] == seq[2:(l-1)] 
+    pair_b = seq[2:(l-1)] == seq[3:l]
+    trip = pair_a & pair_b
+    return(sum(trip))
+}
+```
+
+Check function
+```{r}
+trip_count(c(1,1,1,1,1))
+trip_count(c(1,1,1,1,1,0,1,1,1))
+trip_count(c(1,1,1,1,1,0,0,0,0,1,1,1))
+```
+
+Monte Carlo experiment
+====
+```{r}
+trips_for_bernoullis = function(n){
+    seq = sample(size = n, x =c(0,1),replace = TRUE)
+    trip_count(seq)
+}
+
+trips = replicate(10000, trips_for_bernoullis(50))
+prop.table(table(trips))
+```
+
+For example, approx. prob. of less than 5 triplets?
+```{r}
+mean(trips < 5)
+```
+
+We have 10000 i.i.d. variables $T_i$.
+
+Mathematically, we estimated:
+\[E[g(T_i)]\quad, \quad g(t) = 1_{(t<5)} \]
+
+Describing the distribution of $T_i$
+====
+
+We generated a new data set $T_1,...T_B$. 
+
+```{r, echo = FALSE}
+ggplot() + geom_histogram(aes(x = trips, ..density..), binwidth=1)
+```
+
+The height for each value of $t$ approximates the true probability.
+
+How many Monte Carlo experiments are enough
+=====
+- Above we used $B=10,000$ Monte Carlo experiments. 
+- But how much is enough? 
+
+1. Checking stability:
+
+```{r}
+B <- 10^seq(1, 5, len = 100)
+compute_prob <- function(B, n=50){
+  trips <- replicate(B, trips_for_bernoullis(n))
+  mean(trips < 5)
+}
+prob <- sapply(B, compute_prob)
+plot(log10(B), prob, type = "l")
+```
+
+Distribution of probability-estimator
+=====
+
+2. Evoking probability theory
+
+- What is the distribution of $\hat{p}$ ?
+\[ \hat{p_B} = \frac{1}{B} \sum 1_{(T_i<5)} \]
+
+\[ B \cdot \hat{p}_B \sim Binomial(B, p) \]
+
+\[ sd(\hat{p_B}) = \frac{\sqrt{p (1-p)}}{\sqrt{B}}\]
+(**Standard Error:** the standard deviation of an estimator in a sample)
+
+So in our case
+
+\[p \approx \hat{p}_B \approx 0.0164\]
+\[\sqrt{p (1-p)} \approx 0.13 \]
+\[|\hat{p_B}-p| \approx \frac{0.13}{\sqrt{B}}\]
+
+Taking B=10000 gives tolerance of 0.0013
+
+More Generally: Distribution of expected values
+=====
+
+2. Evoking probability theory
+
+- What is the distribution of $\bar{T} = \frac{1}{B}\sum T_i$? by the Central Limit Theorem
+\[\bar{T} \stackrel{\cdot}\sim Normal(\mu_T,\sigma^2_T/B)\]
+
+So:
+
+- $|\bar{T}-\mu_T| \approx \frac{\sigma_T}{\sqrt{B}}$ 
+- In some cases we can estimate $\sigma^2_T$, and plug-in our estimate $\hat{\sigma^2_T}$ in the above. 
+
+
+Read Data and Compare
+===
+
+```{r, cache=FALSE}
+digits <- read.table('RandomDigits.txt', header = FALSE, sep = "", 
+                     colClasses = c('character', 'character'), col.names=c('seq', 'label'))
+n <- length(digits$seq)
+for(i in c(1:n))
+{  
+  digits$triplets[i] <- trip_count(as.integer(unlist(strsplit(digits$seq[[i]], ""))))
+}
+
+# plot with ggplot 
+
+
+ggplot(labels=c('R', 'H')) + geom_density(aes(x = trips, ..density.., color='blue')) + 
+  geom_density(data = digits %>% filter(label=='H'), aes(x = triplets, ..density.., color='red')) + scale_color_manual(labels = c("Random", "Human"), values = c("blue", "red")) + 
+  labs(color = 'Source', title='consecutive triplets distribution')
+
+
+ggplot(labels=c('R', 'H')) + stat_ecdf(aes(x = trips, color='blue')) + stat_ecdf(data = digits %>%
+  filter(label=='H'), aes(x = triplets, color='red')) + 
+  scale_color_manual(labels = c("Random", "Human"), values = c("blue", "red")) + 
+  labs(color = 'Source', title='triplets cumulative distribution')
+
+
+```
+
+
+A Statistical Test  
+===
+We can also *count* *patterns* - for example all triplets. <br>
+We know that for each triplet, the expected number is: 
+$$
+E [\# triplets] = {Pr(triplet \: at \: one \: place)} \times {\# places} = {2^{-3}}(n-2) = \frac{n-2}{8} = 6.
+$$
+
+We can go over all possible $8$ triplets, and compute a chi-square test statistic: 
+$$
+T = \sum_{j='000',...,'111'} \frac{(o_j-e_j)^2}{e_j}
+$$
+Let's compare the statistic on random and human-generated sequences: 
+
+```{r}
+triplet.T = function(seq){ 
+   Obs <- rep(0, 8)
+   n =  length(seq)
+   Exp = rep((n-2)/8, 8)
+   
+   for(i in 1:(n-2))
+   {
+     j = seq[i]*4+seq[i+1]*2+seq[i+2]+1
+     Obs[j] <- Obs[j]+1
+   }
+#   print(Obs)
+#   print(Exp)
+   return(sum((Obs-Exp)^2 / Exp))
+}
+
+n <- length(digits$seq)
+for(i in c(1:n))
+{  
+  digits$T[i] <- triplet.T(as.integer(unlist(strsplit(digits$seq[[i]], ""))))
+}
+
+digits %>% ggplot(aes(x=T, color=label)) + stat_ecdf() +
+  scale_color_manual(labels = c("Random", "Human"), values = c("blue", "red"))
+
+```
+
+We can also **discriminate** between random and human-generated sequences, based in the triplets statistics: 
+```{r}
+digits$guess_random = digits$T < 10 
+
+prob_correct_guess = (sum((digits$guess_random == TRUE) & (digits$label=='R')) +
+  sum((digits$guess_random == FALSE) & (digits$label=='H'))) / length(digits$T)
+print(prob_correct_guess)
+
+```
+
+
+Game: Who Sees Pattern first? 
+===
+
+Alice chooses a pattern '000' <br>
+Bob chooses a pattern '111'. <br>
+
+We keep tossing a fair coin until one of the patterns is seen and its owner is declared as winner.
+What is the probability that Alice wins?
+
+Next, Alice changes her pattern to '010' (Bob keeps his pattern of '111'). <br>
+Did Alice's winning probabity change?
+
